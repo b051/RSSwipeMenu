@@ -35,6 +35,7 @@
 @interface UITableView (RSSwipeMenu)
 
 - (NSUInteger)swipeMenuInstanceCount;
+- (void)setSwipeMenuInstanceCount:(NSUInteger)count;
 - (BOOL)swipeMenuEnabled;
 - (void)setSwipeMenuEnabled:(BOOL)enabled;
 - (void)setSwipeMenuDelegate:(id<RSSwipeMenuTrayDelegate>)delegate;

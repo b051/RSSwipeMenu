@@ -137,7 +137,7 @@
 	}
 }
 
-- (BOOL)makeDecision
+- (void)makeDecision
 {
 	__block CGRect frame = _cell.frame;
 	if (frame.origin.x < -perWidth) {
@@ -149,17 +149,24 @@
 			_cell.frame = frame;
 		}];
 	} else {
-		if (!resetting) {
-			[self reset];
-			return NO;
-		}
+		[self reset];
 	}
-	return YES;
 }
 
 - (void)reset
 {
 	[self resetAnimated:YES];
+}
+
+- (void)removeFromSuperview
+{
+	if (self.superview) {
+		if ([self.superview respondsToSelector:@selector(setSwipeMenuInstanceCount:)]) {
+			UITableView *tableView = (UITableView *)self.superview;
+			tableView.swipeMenuInstanceCount--;
+		}
+		[super removeFromSuperview];
+	}
 }
 
 - (void)resetAnimated:(BOOL)animated
@@ -211,17 +218,12 @@ static char kSwipeMenuDelegate;
 	if (!indexPath) return nil;
 	RSSwipeMenuTray *menu = nil;
 	
-	NSUInteger _instanceCount = self.swipeMenuInstanceCount;
-	NSUInteger originCount = _instanceCount;
 	for (RSSwipeMenuTray *mt in [self subviews]) {
 		if ([mt isKindOfClass:[RSSwipeMenuTray class]]) {
 			if (!menu && mt.indexPath == indexPath) {
 				menu = mt;
 			} else {
-				if (!mt.resetting) {
-					[mt resetAnimated:YES];
-					_instanceCount--;
-				}
+				[mt resetAnimated:YES];
 			}
 		}
 	}
@@ -234,11 +236,9 @@ static char kSwipeMenuDelegate;
 		if ([menu.delegate respondsToSelector:@selector(backgroundImageForMenuTray:)]) {
 			[menu setBackgroundImage:[menu.delegate backgroundImageForMenuTray:menu]];
 		}
-		_instanceCount++;
+		self.swipeMenuInstanceCount++;
 		[self insertSubview:menu atIndex:0];
 	}
-	if (originCount != _instanceCount)
-		self.swipeMenuInstanceCount = _instanceCount;
 	return menu;
 }
 
@@ -285,7 +285,6 @@ static char kSwipeMenuDelegate;
 				[mt resetAnimated:animated];
 			}
 		}
-		self.swipeMenuInstanceCount = 0;
 	}
 }
 
@@ -300,15 +299,10 @@ static char kSwipeMenuDelegate;
 		[menu move:translation.x];
 		[gesture setTranslation:CGPointZero inView:gesture.cell];
 	} else if (gesture.state == UIGestureRecognizerStateEnded) {
-		if (![menu makeDecision]) {
-			self.swipeMenuInstanceCount--;
-		}
+		[menu makeDecision];
 	} else if (gesture.state == UIGestureRecognizerStateCancelled) {
 		if (menu) {
-			if (!menu.resetting) {
-				[menu resetAnimated:YES];
-				self.swipeMenuInstanceCount--;
-			}
+			[menu resetAnimated:YES];
 		}
 	}
 }
