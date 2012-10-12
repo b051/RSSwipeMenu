@@ -11,13 +11,142 @@
 
 #define BASETAG 5120
 
+#pragma mark - UITableView+RSSwipeMenu
+@implementation UITableView (RSSwipeMenu)
+
+#pragma mark - properties
+static char kSwipeMenuInstanceCount;
+static char kEnabledSwipeMenu;
+static char kSwipeMenuDelegate;
+static char kReusableMenuSet;
+
+- (NSMutableSet *)reusableMenu
+{
+	return objc_getAssociatedObject(self, &kReusableMenuSet);
+}
+
+- (BOOL)swipeMenuEnabled
+{
+	return [objc_getAssociatedObject(self, &kEnabledSwipeMenu) boolValue];
+}
+
+- (void)setSwipeMenuEnabled:(BOOL)enabled
+{
+	objc_setAssociatedObject(self, &kEnabledSwipeMenu, @(enabled), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+	for (UIGestureRecognizer *gr in self.gestureRecognizers) {
+		if ([gr isKindOfClass:[RSSwipeMenuGestureRecognizer class]]) {
+			[self removeGestureRecognizer:gr];
+		}
+	}
+	objc_setAssociatedObject(self, &kReusableMenuSet, nil, OBJC_ASSOCIATION_ASSIGN);
+	if (enabled) {
+		objc_setAssociatedObject(self, &kReusableMenuSet, [NSMutableSet setWithCapacity:2], OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+		[self addGestureRecognizer:[[RSSwipeMenuGestureRecognizer alloc] initWithTarget:self action:@selector(_RS_swipeMenuPan:)]];
+	}
+	self.swipeMenuInstanceCount = 0;
+}
+
+- (void)setSwipeMenuDelegate:(id<RSSwipeMenuTrayDelegate>)delegate
+{
+	objc_setAssociatedObject(self, &kSwipeMenuDelegate, delegate, OBJC_ASSOCIATION_ASSIGN);
+}
+
+- (NSUInteger)swipeMenuInstanceCount
+{
+	return [objc_getAssociatedObject(self, &kSwipeMenuInstanceCount) unsignedIntegerValue];
+}
+
+- (void)setSwipeMenuInstanceCount:(NSUInteger)count
+{
+	objc_setAssociatedObject(self, &kSwipeMenuInstanceCount, @(count), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+
+- (RSSwipeMenuTray *)dequeueReusableSwipeMenu
+{
+	RSSwipeMenuTray *menu = [self.reusableMenu anyObject];
+	if (menu) {
+		[self.reusableMenu removeObject:menu];
+	}
+	return menu;
+}
+
+- (void)enqueueReusableSwipeMenu:(RSSwipeMenuTray *)menu
+{
+	if (menu) {
+		[self.reusableMenu addObject:menu];
+		self.swipeMenuInstanceCount--;
+	}
+}
+
+- (RSSwipeMenuTray *)swipeMenuAtIndexPath:(NSIndexPath *)indexPath
+{
+	if (!indexPath) return nil;
+	RSSwipeMenuTray *menu = nil;
+	
+	for (RSSwipeMenuTray *mt in [self subviews]) {
+		if ([mt isKindOfClass:[RSSwipeMenuTray class]]) {
+			if (!menu && mt.indexPath == indexPath) {
+				menu = mt;
+			} else {
+				[mt resetAnimated:YES];
+			}
+		}
+	}
+	
+	if (!menu) {
+		menu = [self dequeueReusableSwipeMenu];
+		if (!menu) {
+			menu = [[RSSwipeMenuTray alloc] initWithDelegate:objc_getAssociatedObject(self, &kSwipeMenuDelegate)];
+		}
+		UITableViewCell *cell = [self cellForRowAtIndexPath:indexPath];
+		menu.cell = cell;
+		menu.indexPath = indexPath;
+		self.swipeMenuInstanceCount++;
+		[self insertSubview:menu atIndex:0];
+	}
+	return menu;
+}
+
+- (void)closeAnySwipeMenuAnimated:(BOOL)animated
+{
+	if (self.swipeMenuInstanceCount) {
+		for (RSSwipeMenuTray *mt in [self subviews]) {
+			if ([mt isKindOfClass:[RSSwipeMenuTray class]]) {
+				[mt resetAnimated:animated];
+			}
+		}
+	}
+}
+
+- (void)_RS_swipeMenuPan:(RSSwipeMenuGestureRecognizer *)gesture
+{
+	if (gesture.state == UIGestureRecognizerStateFailed) {
+		return [self closeAnySwipeMenuAnimated:YES];
+	}
+	RSSwipeMenuTray *menu = [self swipeMenuAtIndexPath:gesture.indexPath];
+	if (gesture.state == UIGestureRecognizerStateChanged) {
+		CGPoint translation = [gesture translationInView:gesture.cell];
+		[menu move:translation.x];
+		[gesture setTranslation:CGPointZero inView:gesture.cell];
+	} else if (gesture.state == UIGestureRecognizerStateEnded) {
+		[menu makeDecision];
+	} else if (gesture.state == UIGestureRecognizerStateCancelled) {
+		if (menu) {
+			[menu resetAnimated:YES];
+		}
+	}
+}
+
+@end
+
+
 #pragma marl - RSSwipeMenuTray
 @implementation RSSwipeMenuTray
 {
 	UIView *holderView;
 	CGFloat perWidth;
 	CGFloat swipeDuration;
-	UIImageView *background;
+	UIView *backgroundView;
 	NSMutableSet *reusableButtons;
 	__unsafe_unretained UITableViewCell *_cell;
 }
@@ -26,13 +155,18 @@
 @synthesize delegate;
 @synthesize resetting;
 
-- (id)initWithCell:(UITableViewCell *)cell
+- (id)initWithDelegate:(id<RSSwipeMenuTrayDelegate>)_delegate
 {
-	CGRect frame = cell.frame;
-	//	frame.origin.y -= 1;
-	self = [super initWithFrame:frame];
-	if (self) {
-		_cell = cell;
+	if (self = [super initWithFrame:CGRectMake(0, 0, 320, 45)]) {
+		delegate = _delegate;
+		if ([delegate respondsToSelector:@selector(backgroundViewForMenuTray:)]) {
+			UIView *view = [delegate backgroundViewForMenuTray:self];
+			if (view) {
+				view.frame = self.backgroundView.bounds;
+				view.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+				[self.backgroundView addSubview:view];
+			}
+		}
 		swipeDuration = .1f;
 		reusableButtons = [NSMutableSet set];
 		
@@ -45,6 +179,13 @@
 	return self;
 }
 
+- (void)setCell:(UITableViewCell *)cell
+{
+	CGRect frame = cell.frame;
+	self.frame = frame;
+	_cell = cell;
+}
+
 - (UIButton *)dequeueReusableButton
 {
 	UIButton *button = [reusableButtons anyObject];
@@ -52,20 +193,20 @@
 	return button;
 }
 
-- (void)setBackgroundImage:(UIImage *)backgroundImage
+- (UIView *)backgroundView
 {
-	if (!background) {
-		background = [[UIImageView alloc] initWithFrame:self.bounds];
-		background.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-		[self insertSubview:background atIndex:0];
+	if (!backgroundView) {
+		backgroundView = [[UIView alloc] initWithFrame:self.bounds];
+		backgroundView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+		[self insertSubview:backgroundView atIndex:0];
 	}
-	background.image = backgroundImage;
+	return backgroundView;
 }
 
 - (void)layoutSubviews
 {
 	for (UIView *view in self.subviews) {
-		if (view != background) {
+		if (view != backgroundView) {
 			[reusableButtons addObject:view];
 			[view removeFromSuperview];
 		}
@@ -158,14 +299,13 @@
 	[self resetAnimated:YES];
 }
 
-- (void)removeFromSuperview
+- (void)RS_removeFromSuperview
 {
 	if (self.superview) {
-		if ([self.superview respondsToSelector:@selector(setSwipeMenuInstanceCount:)]) {
-			UITableView *tableView = (UITableView *)self.superview;
-			tableView.swipeMenuInstanceCount--;
+		if ([self.superview respondsToSelector:@selector(enqueueReusableSwipeMenu:)]) {
+			[(id)self.superview enqueueReusableSwipeMenu:self];
 		}
-		[super removeFromSuperview];
+		[self removeFromSuperview];
 	}
 }
 
@@ -192,7 +332,7 @@
 				_cell.frame = frame;
 			} completion:^(BOOL finished) {
 				resetting = NO;
-				[self removeFromSuperview];
+				[self RS_removeFromSuperview];
 			}];
 		}];
 	} else {
@@ -200,110 +340,7 @@
 		frame.origin.x = 0;
 		_cell.frame = frame;
 		resetting = NO;
-		[self removeFromSuperview];
-	}
-}
-
-@end
-
-#pragma mark - UITableView+RSSwipeMenu
-@implementation UITableView (RSSwipeMenu)
-
-static char kSwipeMenuInstanceCount;
-static char kEnabledSwipeMenu;
-static char kSwipeMenuDelegate;
-
-- (RSSwipeMenuTray *)swipeMenuAtIndexPath:(NSIndexPath *)indexPath
-{
-	if (!indexPath) return nil;
-	RSSwipeMenuTray *menu = nil;
-	
-	for (RSSwipeMenuTray *mt in [self subviews]) {
-		if ([mt isKindOfClass:[RSSwipeMenuTray class]]) {
-			if (!menu && mt.indexPath == indexPath) {
-				menu = mt;
-			} else {
-				[mt resetAnimated:YES];
-			}
-		}
-	}
-	
-	if (!menu) {
-		UITableViewCell *cell = [self cellForRowAtIndexPath:indexPath];
-		menu = [[RSSwipeMenuTray alloc] initWithCell:cell];
-		menu.indexPath = indexPath;
-		menu.delegate = objc_getAssociatedObject(self, &kSwipeMenuDelegate);
-		if ([menu.delegate respondsToSelector:@selector(backgroundImageForMenuTray:)]) {
-			[menu setBackgroundImage:[menu.delegate backgroundImageForMenuTray:menu]];
-		}
-		self.swipeMenuInstanceCount++;
-		[self insertSubview:menu atIndex:0];
-	}
-	return menu;
-}
-
-- (BOOL)swipeMenuEnabled
-{
-	return [objc_getAssociatedObject(self, &kEnabledSwipeMenu) boolValue];
-}
-
-- (void)setSwipeMenuEnabled:(BOOL)enabled
-{
-	objc_setAssociatedObject(self, &kEnabledSwipeMenu, @(enabled), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-	for (UIGestureRecognizer *gr in self.gestureRecognizers) {
-		if ([gr isKindOfClass:[RSSwipeMenuGestureRecognizer class]]) {
-			[self removeGestureRecognizer:gr];
-		}
-	}
-	if (enabled) {
-		[self addGestureRecognizer:[[RSSwipeMenuGestureRecognizer alloc] initWithTarget:self action:@selector(_RS_swipeMenuPan:)]];
-	}
-	self.swipeMenuInstanceCount = 0;
-}
-
-- (void)setSwipeMenuDelegate:(id<RSSwipeMenuTrayDelegate>)delegate
-{
-	objc_setAssociatedObject(self, &kSwipeMenuDelegate, delegate, OBJC_ASSOCIATION_ASSIGN);
-}
-
-- (NSUInteger)swipeMenuInstanceCount
-{
-	return [objc_getAssociatedObject(self, &kSwipeMenuInstanceCount) unsignedIntegerValue];
-}
-
-- (void)setSwipeMenuInstanceCount:(NSUInteger)count
-{
-	NSLog(@"set instanceCount = %d", count);
-	objc_setAssociatedObject(self, &kSwipeMenuInstanceCount, @(count), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-}
-
-- (void)closeAnySwipeMenuAnimated:(BOOL)animated
-{
-	if (self.swipeMenuInstanceCount) {
-		for (RSSwipeMenuTray *mt in [self subviews]) {
-			if ([mt isKindOfClass:[RSSwipeMenuTray class]]) {
-				[mt resetAnimated:animated];
-			}
-		}
-	}
-}
-
-- (void)_RS_swipeMenuPan:(RSSwipeMenuGestureRecognizer *)gesture
-{
-	if (gesture.state == UIGestureRecognizerStateFailed) {
-		return [self closeAnySwipeMenuAnimated:YES];
-	}
-	RSSwipeMenuTray *menu = [self swipeMenuAtIndexPath:gesture.indexPath];
-	if (gesture.state == UIGestureRecognizerStateChanged) {
-		CGPoint translation = [gesture translationInView:gesture.cell];
-		[menu move:translation.x];
-		[gesture setTranslation:CGPointZero inView:gesture.cell];
-	} else if (gesture.state == UIGestureRecognizerStateEnded) {
-		[menu makeDecision];
-	} else if (gesture.state == UIGestureRecognizerStateCancelled) {
-		if (menu) {
-			[menu resetAnimated:YES];
-		}
+		[self RS_removeFromSuperview];
 	}
 }
 

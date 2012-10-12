@@ -13,7 +13,7 @@
 - (NSUInteger)numberOfItemsInMenuTray:(RSSwipeMenuTray *)menuTray;
 - (UIButton *)menuTray:(RSSwipeMenuTray *)menuTray buttonAtIndex:(NSUInteger)index reusableButton:(UIButton *)view;
 @optional
-- (UIImage *)backgroundImageForMenuTray:(RSSwipeMenuTray *)menuTray;
+- (UIView *)backgroundViewForMenuTray:(RSSwipeMenuTray *)menuTray;
 @optional
 - (void)menuTray:(RSSwipeMenuTray *)menuTray selectedButtonAtIndex:(NSUInteger)index;
 @optional
@@ -23,11 +23,14 @@
 @interface RSSwipeMenuTray : UIView
 
 @property (nonatomic, readonly) BOOL resetting;
+@property (nonatomic, readonly) UIView *backgroundView;
 @property (nonatomic, strong) NSIndexPath *indexPath;
+@property (nonatomic, unsafe_unretained) UITableViewCell *cell;
 @property (nonatomic, unsafe_unretained) id<RSSwipeMenuTrayDelegate> delegate;
 
-- (id)initWithCell:(UITableViewCell *)cell;
+- (id)initWithDelegate:(id<RSSwipeMenuTrayDelegate>)_delegate;
 - (void)move:(CGFloat)x;
+- (void)makeDecision;
 - (void)resetAnimated:(BOOL)animated;
 - (void)setButtonAtIndex:(NSUInteger)index disabled:(BOOL)disabled;
 @end
@@ -35,7 +38,6 @@
 @interface UITableView (RSSwipeMenu)
 
 - (NSUInteger)swipeMenuInstanceCount;
-- (void)setSwipeMenuInstanceCount:(NSUInteger)count;
 - (BOOL)swipeMenuEnabled;
 - (void)setSwipeMenuEnabled:(BOOL)enabled;
 - (void)setSwipeMenuDelegate:(id<RSSwipeMenuTrayDelegate>)delegate;
