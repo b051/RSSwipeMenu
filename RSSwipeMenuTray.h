@@ -11,7 +11,7 @@
 @protocol RSSwipeMenuTrayDelegate <NSObject>
 
 - (NSUInteger)numberOfItemsInMenuTray:(RSSwipeMenuTray *)menuTray;
-- (UIButton *)menuTray:(RSSwipeMenuTray *)menuTray buttonAtIndex:(NSUInteger)index reusableButton:(UIButton *)view;
+- (UIView *)menuTray:(RSSwipeMenuTray *)menuTray buttonAtIndex:(NSUInteger)index reusableButton:(UIView *)view;
 @optional
 - (UIView *)backgroundViewForMenuTray:(RSSwipeMenuTray *)menuTray;
 @optional
@@ -26,7 +26,11 @@
 @property (nonatomic, readonly) UIView *backgroundView;
 @property (nonatomic, strong) NSIndexPath *indexPath;
 @property (nonatomic, unsafe_unretained) UITableViewCell *cell;
+@property (nonatomic) CGFloat margin UI_APPEARANCE_SELECTOR;
+
 @property (nonatomic, unsafe_unretained) id<RSSwipeMenuTrayDelegate> delegate;
+
+@property (nonatomic) CGFloat disabledAlpha UI_APPEARANCE_SELECTOR;
 
 - (id)initWithDelegate:(id<RSSwipeMenuTrayDelegate>)_delegate;
 - (void)move:(CGFloat)x;
