@@ -10,8 +10,6 @@
 #import <objc/runtime.h>
 #import <objc/message.h>
 
-#define BASETAG 5120
-
 #pragma mark - UITableView+RSSwipeMenu
 @implementation UITableView (RSSwipeMenu)
 
@@ -151,6 +149,7 @@ static char kReusableMenuSet;
 	NSMutableSet *reusableButtons;
 	__unsafe_unretained UITableViewCell *_cell;
 	NSUInteger disabledMask;
+	NSMutableArray *buttons;
 }
 
 @synthesize indexPath=_indexPath;
@@ -178,6 +177,7 @@ static char kReusableMenuSet;
 		swipe2.direction = UISwipeGestureRecognizerDirectionLeft;
 		[self addGestureRecognizer:swipe2];
 		[self addGestureRecognizer:[[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(menuItemClicked:)]];
+		buttons = [@[] mutableCopy];
 	}
 	return self;
 }
@@ -187,6 +187,7 @@ static char kReusableMenuSet;
 	CGRect frame = cell.frame;
 	self.frame = frame;
 	_cell = cell;
+	[self layoutItems];
 }
 
 - (UIView *)dequeueReusableButton
@@ -206,34 +207,36 @@ static char kReusableMenuSet;
 	return backgroundView;
 }
 
-- (void)layoutSubviews
+- (void)layoutItems
 {
-	for (UIView *view in self.subviews) {
-		if (view != backgroundView) {
-			[reusableButtons addObject:view];
-			[view removeFromSuperview];
-		}
+	for (UIView *view in buttons) {
+		[reusableButtons addObject:view];
+		[view removeFromSuperview];
 	}
+	[buttons removeAllObjects];
 	NSUInteger count = [self.delegate numberOfItemsInMenuTray:self];
 	perWidth = (self.bounds.size.width - 2 * _margin) / count;
 	CGFloat height = self.bounds.size.height;
 	for (NSUInteger i = 0; i < count; i++) {
 		UIView *button = [self dequeueReusableButton];
 		button = [self.delegate menuTray:self buttonAtIndex:i reusableButton:button];
+		button.autoresizingMask = UIViewAutoresizingNone;
+		button.transform = CGAffineTransformIdentity;
 		[button sizeToFit];
 		CGRect frame = button.frame;
 		frame.origin.x = _margin + i * perWidth;
 		frame.size.width = perWidth;
 		frame.origin.y = (height - frame.size.height) / 2;
 		button.frame = frame;
-		button.tag = BASETAG + i;
+		
+		[buttons addObject:button];
 		[self addSubview:button];
 	}
 }
 
 - (void)setButtonAtIndex:(NSUInteger)index disabled:(BOOL)disabled
 {
-	UIView *button = [self viewWithTag:index + BASETAG];
+	UIView *button = buttons[index];
 	button.alpha = disabled ? _disabledAlpha : 1;
 	if (disabled) {
 		disabledMask |= 1 << disabled;
@@ -252,13 +255,14 @@ static char kReusableMenuSet;
 		BOOL rightUnveiling = x < 0;
 		if (rightUnveiling) x += frame.size.width;
 		NSUInteger idx = floorf((x - _margin) / perWidth);
+		if (idx >= buttons.count) return;
 		CGFloat visible;
 		if (rightUnveiling) {
 			visible = (idx + 1) * perWidth + _margin - x;
 		} else {
 			visible = x - idx * perWidth - _margin;
 		}
-		UIView *view = [self viewWithTag:BASETAG + idx];
+		UIView *view = buttons[idx];
 		view.transform = [self.delegate menuTray:self transformForButtonAtIndex:idx visibleWidth:visible];
 	}
 }
@@ -266,19 +270,16 @@ static char kReusableMenuSet;
 - (void)menuItemClicked:(UITapGestureRecognizer *)tap
 {
 	CGFloat x = [tap locationInView:self].x - _margin;
-	NSUInteger idx = ceilf(x / perWidth);
+	NSUInteger idx = MIN(buttons.count, floorf(x / perWidth));
 	if ((disabledMask | (1 << idx)) == disabledMask) {
 		return;
 	}
-	//	sender.selected = YES;
 	int i = 0;
-	for (UIView *button in self.subviews) {
-		if (button.tag >= BASETAG) {
-			if ([button respondsToSelector:@selector(setHighlighted:)]) {
-				objc_msgSend(button, @selector(setHighlighted:), idx == i);
-			}
-			i++;
+	for (UIView *button in buttons) {
+		if ([button respondsToSelector:@selector(setHighlighted:)]) {
+			objc_msgSend(button, @selector(setHighlighted:), idx == i);
 		}
+		i++;
 	}
 	if ([self.delegate respondsToSelector:@selector(menuTray:selectedButtonAtIndex:)]) {
 		dispatch_async(dispatch_get_main_queue(), ^{
