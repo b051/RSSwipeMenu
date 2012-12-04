@@ -128,7 +128,7 @@ static char kReusableMenuSet;
 		[menu move:translation.x];
 		[gesture setTranslation:CGPointZero inView:gesture.cell];
 	} else if (gesture.state == UIGestureRecognizerStateEnded) {
-		[menu makeDecision];
+		[menu makeDecision:[gesture velocityInView:self]];
 	} else if (gesture.state == UIGestureRecognizerStateCancelled) {
 		if (menu) {
 			[menu resetAnimated:YES];
@@ -144,33 +144,24 @@ static char kReusableMenuSet;
 {
 	UIView *holderView;
 	CGFloat perWidth;
-	CGFloat swipeDuration;
-	UIView *backgroundView;
 	NSMutableSet *reusableButtons;
 	__unsafe_unretained UITableViewCell *_cell;
 	NSUInteger disabledMask;
 	NSMutableArray *buttons;
+	UIImageView *backgroundView;
 }
 
-@synthesize indexPath=_indexPath;
-@synthesize delegate;
 @synthesize resetting;
 
-- (id)initWithDelegate:(id<RSSwipeMenuTrayDelegate>)_delegate
+- (id)initWithDelegate:(id<RSSwipeMenuTrayDelegate>)delegate
 {
-	if (self = [super initWithFrame:CGRectMake(0, 0, 320, 45)]) {
-		delegate = _delegate;
-		if ([delegate respondsToSelector:@selector(backgroundViewForMenuTray:)]) {
-			UIView *view = [delegate backgroundViewForMenuTray:self];
-			if (view) {
-				view.frame = self.backgroundView.bounds;
-				view.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-				[self.backgroundView addSubview:view];
-			}
-		}
-		swipeDuration = .1f;
+	if (self = [super initWithFrame:CGRectMake(0, 0, 320, 44)]) {
+		_delegate = delegate;
+		_swipeDuration = .1f;
 		reusableButtons = [NSMutableSet set];
 		_disabledAlpha = .5;
+		_maxOffset = 1.f;
+		_minOffset = -1.f;
 		UISwipeGestureRecognizer *swipe = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(reset)];
 		[self addGestureRecognizer:swipe];
 		UISwipeGestureRecognizer *swipe2 = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(reset)];
@@ -180,6 +171,17 @@ static char kReusableMenuSet;
 		buttons = [@[] mutableCopy];
 	}
 	return self;
+}
+
+- (void)setBackgroundImage:(UIImage *)backgroundImage
+{
+	_backgroundImage = backgroundImage;
+	if (!backgroundView) {
+		backgroundView = [[UIImageView alloc] initWithFrame:self.bounds];
+		backgroundView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+		[self insertSubview:backgroundView atIndex:0];
+	}
+	[backgroundView setImage:backgroundImage];
 }
 
 - (void)setCell:(UITableViewCell *)cell
@@ -195,16 +197,6 @@ static char kReusableMenuSet;
 	UIView *button = [reusableButtons anyObject];
 	if (button) [reusableButtons removeObject:button];
 	return button;
-}
-
-- (UIView *)backgroundView
-{
-	if (!backgroundView) {
-		backgroundView = [[UIView alloc] initWithFrame:self.bounds];
-		backgroundView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-		[self insertSubview:backgroundView atIndex:0];
-	}
-	return backgroundView;
 }
 
 - (void)layoutItems
@@ -248,7 +240,7 @@ static char kReusableMenuSet;
 - (void)move:(CGFloat)offset
 {
 	CGRect frame = _cell.frame;
-	frame.origin.x = MIN(0, offset + frame.origin.x); //only right unveil is allowed.
+	frame.origin.x = MAX(_minOffset * frame.size.width, MIN(_maxOffset * frame.size.width, offset + frame.origin.x));
 	_cell.frame = frame;
 	if ([self.delegate respondsToSelector:@selector(menuTray:transformForButtonAtIndex:visibleWidth:)]) {
 		CGFloat x = frame.origin.x;
@@ -290,13 +282,18 @@ static char kReusableMenuSet;
 
 - (void)makeDecision
 {
+	[self makeDecision:CGPointZero];
+}
+
+- (void)makeDecision:(CGPoint)velocity
+{
 	__block CGRect frame = _cell.frame;
-	if (frame.origin.x < -perWidth) {
+	if (frame.origin.x + velocity.x * _swipeDuration < -perWidth) {
 		for (UIView *view in self.subviews) {
 			view.transform = CGAffineTransformIdentity;
 		}
-		[UIView animateWithDuration:swipeDuration animations:^{
-			frame.origin.x = -frame.size.width;
+		[UIView animateWithDuration:_swipeDuration animations:^{
+			frame.origin.x = MAX(_minOffset, -1.0f) * frame.size.width;
 			_cell.frame = frame;
 		}];
 	} else {
@@ -326,9 +323,9 @@ static char kReusableMenuSet;
 	}
 	resetting = YES;
 	if (animated) {
-		for (UIButton *button in self.subviews) {
-			if ([button isKindOfClass:[UIButton class]]) {
-				button.selected = NO;
+		for (UIView *button in buttons) {
+			if ([button respondsToSelector:@selector(setHighlighted:)]) {
+				objc_msgSend(button, @selector(setHighlighted:), NO);
 			}
 		}
 		__block CGRect frame = _cell.frame;
@@ -337,7 +334,7 @@ static char kReusableMenuSet;
 			frame.origin.x = bounceDistance;
 			_cell.frame = frame;
 		} completion:^(BOOL finished) {
-			[UIView animateWithDuration:swipeDuration animations:^{
+			[UIView animateWithDuration:_swipeDuration animations:^{
 				frame.origin.x = 0;
 				_cell.frame = frame;
 			} completion:^(BOOL finished) {
