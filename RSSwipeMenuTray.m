@@ -139,7 +139,11 @@ static char kReusableMenuSet;
 @end
 
 
-#pragma marl - RSSwipeMenuTray
+#pragma mark - RSSwipeMenuTray
+@interface RSSwipeMenuTray ()
+@property (nonatomic) CGFloat moveOffsetX;
+@end
+
 @implementation RSSwipeMenuTray
 {
 	UIView *holderView;
@@ -240,13 +244,7 @@ static char kReusableMenuSet;
 - (void)move:(CGFloat)offset
 {
 	CGRect frame = _cell.frame;
-	offset = MAX(_minOffset * frame.size.width, MIN(_maxOffset * frame.size.width, offset + frame.origin.x));
-	if ([self.delegate respondsToSelector:@selector(menuTray:cellFrameForOffset:)]) {
-		_cell.frame = [self.delegate menuTray:self cellFrameForOffset:offset];
-	} else {
-		frame.origin.x = offset;
-		_cell.frame = frame;
-	}
+	self.moveOffsetX = MAX(_minOffset * self.bounds.size.width, MIN(_maxOffset * self.bounds.size.width, offset + _moveOffsetX));
 	if ([self.delegate respondsToSelector:@selector(menuTray:transformForButtonAtIndex:visibleWidth:)]) {
 		CGFloat x = frame.origin.x;
 		BOOL rightUnveiling = x < 0;
@@ -290,16 +288,26 @@ static char kReusableMenuSet;
 	[self makeDecision:CGPointZero];
 }
 
+- (void)setMoveOffsetX:(CGFloat)moveOffsetX
+{
+	CGRect frame = _cell.frame;
+	frame.origin.x = _moveOffsetX = moveOffsetX;
+	if ([self.delegate respondsToSelector:@selector(menuTray:cellFrame:)]) {
+		_cell.frame = [self.delegate menuTray:self cellFrame:frame];
+	} else {
+		_cell.frame = frame;
+	}
+}
+
 - (void)makeDecision:(CGPoint)velocity
 {
-	__block CGRect frame = _cell.frame;
-	if (frame.origin.x + velocity.x * _swipeDuration < -perWidth) {
+	CGRect frame = _cell.frame;
+	if (_moveOffsetX + velocity.x * _swipeDuration < -perWidth) {
 		for (UIView *view in self.subviews) {
 			view.transform = CGAffineTransformIdentity;
 		}
 		[UIView animateWithDuration:_swipeDuration animations:^{
-			frame.origin.x = MAX(_minOffset, -1.0f) * frame.size.width;
-			_cell.frame = frame;
+			self.moveOffsetX = MAX(_minOffset, -1.0f) * frame.size.width;
 		}];
 	} else {
 		[self reset];
@@ -340,8 +348,7 @@ static char kReusableMenuSet;
 			_cell.frame = frame;
 		} completion:^(BOOL finished) {
 			[UIView animateWithDuration:_swipeDuration animations:^{
-				frame.origin.x = 0;
-				_cell.frame = frame;
+				self.moveOffsetX = 0;
 			} completion:^(BOOL finished) {
 				resetting = NO;
 				[self RS_removeFromSuperview];
