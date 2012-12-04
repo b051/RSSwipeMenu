@@ -15,6 +15,7 @@
 
 @optional
 - (void)menuTray:(RSSwipeMenuTray *)menuTray selectedButtonAtIndex:(NSUInteger)index;
+- (CGRect)menuTray:(RSSwipeMenuTray *)menuTray cellFrameForOffset:(CGFloat)offset;
 - (CGAffineTransform)menuTray:(RSSwipeMenuTray *)menuTray transformForButtonAtIndex:(NSUInteger)index visibleWidth:(CGFloat)visible;
 @end
 

@@ -240,8 +240,13 @@ static char kReusableMenuSet;
 - (void)move:(CGFloat)offset
 {
 	CGRect frame = _cell.frame;
-	frame.origin.x = MAX(_minOffset * frame.size.width, MIN(_maxOffset * frame.size.width, offset + frame.origin.x));
-	_cell.frame = frame;
+	offset = MAX(_minOffset * frame.size.width, MIN(_maxOffset * frame.size.width, offset + frame.origin.x));
+	if ([self.delegate respondsToSelector:@selector(menuTray:cellFrameForOffset:)]) {
+		_cell.frame = [self.delegate menuTray:self cellFrameForOffset:offset];
+	} else {
+		frame.origin.x = offset;
+		_cell.frame = frame;
+	}
 	if ([self.delegate respondsToSelector:@selector(menuTray:transformForButtonAtIndex:visibleWidth:)]) {
 		CGFloat x = frame.origin.x;
 		BOOL rightUnveiling = x < 0;
