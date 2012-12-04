@@ -246,7 +246,7 @@ static char kReusableMenuSet;
 	CGRect frame = _cell.frame;
 	self.moveOffsetX = MAX(_minOffset * self.bounds.size.width, MIN(_maxOffset * self.bounds.size.width, offset + _moveOffsetX));
 	if ([self.delegate respondsToSelector:@selector(menuTray:transformForButtonAtIndex:visibleWidth:)]) {
-		CGFloat x = frame.origin.x;
+		CGFloat x = _moveOffsetX;
 		BOOL rightUnveiling = x < 0;
 		if (rightUnveiling) x += frame.size.width;
 		NSUInteger idx = floorf((x - _margin) / perWidth);
@@ -355,9 +355,7 @@ static char kReusableMenuSet;
 			}];
 		}];
 	} else {
-		CGRect frame = _cell.frame;
-		frame.origin.x = 0;
-		_cell.frame = frame;
+		self.moveOffsetX = 0;
 		resetting = NO;
 		[self RS_removeFromSuperview];
 	}
