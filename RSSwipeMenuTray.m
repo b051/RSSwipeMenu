@@ -147,20 +147,17 @@ static char kReusableMenuSet;
 #pragma mark - RSSwipeMenuTray
 @interface RSSwipeMenuTray ()
 @property (nonatomic) CGFloat moveOffsetX;
+@property (nonatomic) CGFloat perWidth;
 @end
 
 @implementation RSSwipeMenuTray
 {
 	UIView *holderView;
-	CGFloat perWidth;
 	NSMutableSet *reusableButtons;
-	__unsafe_unretained UITableViewCell *_cell;
 	NSUInteger disabledMask;
 	NSMutableArray *buttons;
 	UIImageView *backgroundView;
 }
-
-@synthesize resetting;
 
 - (id)initWithDelegate:(id<RSSwipeMenuTrayDelegate>)delegate
 {
@@ -195,9 +192,22 @@ static char kReusableMenuSet;
 
 - (void)setCell:(UITableViewCell *)cell
 {
-	CGRect frame = cell.frame;
-	self.frame = frame;
 	_cell = cell;
+	CGRect frame = cell.frame;
+	frame.size.width = cell.superview.bounds.size.width;
+	self.frame = frame;
+	[self layoutItems];
+}
+
+- (void)setMargin:(CGFloat)margin
+{
+	_margin = margin;
+	[self layoutItems];
+}
+
+- (void)setMinOffset:(CGFloat)minOffset
+{
+	_minOffset = minOffset;
 	[self layoutItems];
 }
 
@@ -216,7 +226,8 @@ static char kReusableMenuSet;
 	}
 	[buttons removeAllObjects];
 	NSUInteger count = [self.delegate numberOfItemsInMenuTray:self];
-	perWidth = (self.bounds.size.width - 2 * _margin) / count;
+	CGFloat totalWidth = -_minOffset * self.bounds.size.width;
+	self.perWidth = (totalWidth - 2 * _margin) / count;
 	CGFloat height = self.bounds.size.height;
 	for (NSUInteger i = 0; i < count; i++) {
 		UIView *button = [self dequeueReusableButton];
@@ -225,8 +236,9 @@ static char kReusableMenuSet;
 		button.transform = CGAffineTransformIdentity;
 		[button sizeToFit];
 		CGRect frame = button.frame;
-		frame.origin.x = _margin + i * perWidth;
-		frame.size.width = perWidth;
+		frame.origin.x = _margin + i * _perWidth + self.bounds.size.width - totalWidth;
+		NSLog(@"%d) x=%f", i, frame.origin.x);
+		frame.size.width = _perWidth;
 		frame.origin.y = (height - frame.size.height) / 2;
 		button.frame = frame;
 		
@@ -254,13 +266,13 @@ static char kReusableMenuSet;
 		CGFloat x = _moveOffsetX;
 		BOOL rightUnveiling = x < 0;
 		if (rightUnveiling) x += frame.size.width;
-		NSUInteger idx = floorf((x - _margin) / perWidth);
+		NSUInteger idx = floorf((x - _margin) / _perWidth);
 		if (idx >= buttons.count) return;
 		CGFloat visible;
 		if (rightUnveiling) {
-			visible = (idx + 1) * perWidth + _margin - x;
+			visible = (idx + 1) *_perWidth + _margin - x;
 		} else {
-			visible = x - idx * perWidth - _margin;
+			visible = x - idx *_perWidth - _margin;
 		}
 		UIView *view = buttons[idx];
 		view.transform = [self.delegate menuTray:self transformForButtonAtIndex:idx visibleWidth:visible];
@@ -270,7 +282,7 @@ static char kReusableMenuSet;
 - (void)menuItemClicked:(UITapGestureRecognizer *)tap
 {
 	CGFloat x = [tap locationInView:self].x - _margin;
-	NSUInteger idx = MIN(buttons.count, floorf(x / perWidth));
+	NSUInteger idx = MIN(buttons.count, floorf(x /_perWidth));
 	if ((disabledMask | (1 << idx)) == disabledMask) {
 		return;
 	}
@@ -306,16 +318,18 @@ static char kReusableMenuSet;
 
 - (void)makeDecision:(CGPoint)velocity
 {
-	CGRect frame = _cell.frame;
-	if (_moveOffsetX + velocity.x * _swipeDuration < -perWidth) {
+	CGFloat moved = _moveOffsetX;
+	moved += velocity.x * _swipeDuration;
+	
+	if (-moved > _perWidth + _margin) {
 		for (UIView *view in self.subviews) {
 			view.transform = CGAffineTransformIdentity;
 		}
 		[UIView animateWithDuration:_swipeDuration animations:^{
-			self.moveOffsetX = MAX(_minOffset, -1.0f) * frame.size.width;
+			self.moveOffsetX = MAX(_minOffset, -1.0f) * self.bounds.size.width;
 		}];
 	} else {
-		[self reset];
+		[self resetAnimated:YES];
 	}
 }
 
@@ -336,10 +350,10 @@ static char kReusableMenuSet;
 
 - (void)resetAnimated:(BOOL)animated
 {
-	if (resetting) {
+	if (_resetting) {
 		return;
 	}
-	resetting = YES;
+	_resetting = YES;
 	if (animated) {
 		for (UIView *button in buttons) {
 			if ([button respondsToSelector:@selector(setHighlighted:)]) {
@@ -355,13 +369,13 @@ static char kReusableMenuSet;
 			[UIView animateWithDuration:_swipeDuration animations:^{
 				self.moveOffsetX = 0;
 			} completion:^(BOOL finished) {
-				resetting = NO;
+				_resetting = NO;
 				[self RS_removeFromSuperview];
 			}];
 		}];
 	} else {
 		self.moveOffsetX = 0;
-		resetting = NO;
+		_resetting = NO;
 		[self RS_removeFromSuperview];
 	}
 }

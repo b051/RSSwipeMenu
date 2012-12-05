@@ -23,7 +23,7 @@
 
 @property (nonatomic, readonly) BOOL resetting;
 @property (nonatomic, strong) NSIndexPath *indexPath;
-@property (nonatomic, unsafe_unretained) UITableViewCell *cell;
+@property (nonatomic, weak) UITableViewCell *cell;
 @property (nonatomic) CGFloat margin UI_APPEARANCE_SELECTOR;
 
 @property (nonatomic, unsafe_unretained) id<RSSwipeMenuTrayDelegate> delegate;
