@@ -89,7 +89,7 @@ static char kReusableMenuSet;
 	
 	for (RSSwipeMenuTray *mt in [self subviews]) {
 		if ([mt isKindOfClass:[RSSwipeMenuTray class]]) {
-			if (!menu && mt.indexPath == indexPath) {
+			if (!menu && [mt.indexPath isEqual:indexPath]) {
 				menu = mt;
 			} else {
 				[mt resetAnimated:YES];
