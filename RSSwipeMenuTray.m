@@ -45,6 +45,11 @@ static char kReusableMenuSet;
 	self.swipeMenuInstanceCount = 0;
 }
 
+- (id<RSSwipeMenuTrayDelegate>)swipeMenuDelegate
+{
+	return objc_getAssociatedObject(self, &kSwipeMenuDelegate);
+}
+
 - (void)setSwipeMenuDelegate:(id<RSSwipeMenuTrayDelegate>)delegate
 {
 	objc_setAssociatedObject(self, &kSwipeMenuDelegate, delegate, OBJC_ASSOCIATION_ASSIGN);

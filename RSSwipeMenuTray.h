@@ -44,10 +44,10 @@
 
 @interface UITableView (RSSwipeMenu)
 
+@property (nonatomic) BOOL swipeMenuEnabled;
+@property (nonatomic, readonly) NSUInteger swipeMenuInstanceCount;
+@property (nonatomic, weak) id<RSSwipeMenuTrayDelegate>swipeMenuDelegate;
 - (NSUInteger)swipeMenuInstanceCount;
-- (BOOL)swipeMenuEnabled;
-- (void)setSwipeMenuEnabled:(BOOL)enabled;
-- (void)setSwipeMenuDelegate:(id<RSSwipeMenuTrayDelegate>)delegate;
 - (void)closeAnySwipeMenuAnimated:(BOOL)animated;
 
 @end
