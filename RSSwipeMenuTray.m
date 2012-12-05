@@ -168,6 +168,7 @@ static char kReusableMenuSet;
 		_disabledAlpha = .5;
 		_maxOffset = 1.f;
 		_minOffset = -1.f;
+		_edgeInsets = UIEdgeInsetsZero;
 		UISwipeGestureRecognizer *swipe = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(reset)];
 		[self addGestureRecognizer:swipe];
 		UISwipeGestureRecognizer *swipe2 = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(reset)];
@@ -195,7 +196,16 @@ static char kReusableMenuSet;
 	_cell = cell;
 	CGRect frame = cell.frame;
 	frame.size.width = cell.superview.bounds.size.width;
-	self.frame = frame;
+	self.frame = UIEdgeInsetsInsetRect(frame, _edgeInsets);
+	[self layoutItems];
+}
+
+- (void)setEdgeInsets:(UIEdgeInsets)edgeInsets
+{
+	_edgeInsets = edgeInsets;
+	CGRect frame = _cell.frame;
+	frame.size.width = _cell.superview.bounds.size.width;
+	self.frame = UIEdgeInsetsInsetRect(frame, edgeInsets);
 	[self layoutItems];
 }
 
@@ -237,7 +247,6 @@ static char kReusableMenuSet;
 		[button sizeToFit];
 		CGRect frame = button.frame;
 		frame.origin.x = _margin + i * _perWidth + self.bounds.size.width - totalWidth;
-		NSLog(@"%d) x=%f", i, frame.origin.x);
 		frame.size.width = _perWidth;
 		frame.origin.y = (height - frame.size.height) / 2;
 		button.frame = frame;

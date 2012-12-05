@@ -33,6 +33,7 @@
 @property (nonatomic) CGFloat swipeDuration UI_APPEARANCE_SELECTOR;
 @property (nonatomic) CGFloat minOffset UI_APPEARANCE_SELECTOR;
 @property (nonatomic) CGFloat maxOffset UI_APPEARANCE_SELECTOR;
+@property (nonatomic) UIEdgeInsets edgeInsets UI_APPEARANCE_SELECTOR;
 
 - (id)initWithDelegate:(id<RSSwipeMenuTrayDelegate>)_delegate;
 - (void)move:(CGFloat)x;
