@@ -254,6 +254,7 @@ static char kReusableMenuSet;
 		[buttons addObject:button];
 		[self addSubview:button];
 	}
+	self.moveOffsetX = 0;
 }
 
 - (void)setButtonAtIndex:(NSUInteger)index disabled:(BOOL)disabled

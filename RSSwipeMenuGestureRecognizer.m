@@ -9,9 +9,6 @@
 
 @implementation RSSwipeMenuGestureRecognizer
 
-@synthesize indexPath=_indexPath;
-@synthesize cell=_cell;
-
 - (id) initWithTarget:(id)target action:(SEL)action
 {
 	if ((self = [super initWithTarget:target action:action])) {
@@ -40,7 +37,7 @@
 	[tableView deselectRowAtIndexPath:tableView.indexPathForSelectedRow animated:NO];
 	CGPoint curr = [[touches anyObject] locationInView:tableView];
 	CGPoint prev = [[touches anyObject] previousLocationInView:tableView];
-	CGFloat horizontalWin = prev.x - curr.x - ABS(curr.y - prev.y);
+	CGFloat horizontalWin = ABS(prev.x - curr.x) - ABS(curr.y - prev.y);
 	if (horizontalWin > 0) {
 		_indexPath = [tableView indexPathForRowAtPoint:curr];
 		_cell = nil;

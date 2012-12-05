@@ -10,7 +10,7 @@
 
 @interface RSSwipeMenuGestureRecognizer : UIPanGestureRecognizer
 
-@property (unsafe_unretained, readonly) UITableViewCell *cell;
+@property (nonatomic, weak, readonly) UITableViewCell *cell;
 @property (nonatomic, strong) NSIndexPath *indexPath;
 
 - (void)reset;
