@@ -291,7 +291,8 @@ static char kReusableMenuSet;
 
 - (void)menuItemClicked:(UITapGestureRecognizer *)tap
 {
-	CGFloat x = [tap locationInView:self].x - _margin;
+	CGFloat totalWidth = (1 + _minOffset) * self.bounds.size.width;
+	CGFloat x = [tap locationInView:self].x - totalWidth - _margin;
 	NSUInteger idx = MIN(buttons.count, floorf(x /_perWidth));
 	if ((disabledMask | (1 << idx)) == disabledMask) {
 		return;
