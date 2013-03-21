@@ -285,6 +285,14 @@ static char kReusableMenuSet;
 			visible = x - idx *_perWidth - _margin;
 		}
 		UIView *view = buttons[idx];
+		for (int i = idx + 1; i < buttons.count; i++) {
+			UIView *v = buttons[i];
+			if (!CGAffineTransformEqualToTransform(v.transform, CGAffineTransformIdentity)) {
+				[UIView animateWithDuration:.25 animations:^{
+					v.transform = CGAffineTransformIdentity;
+				}];
+			}
+		}
 		view.transform = [self.delegate menuTray:self transformForButtonAtIndex:idx visibleWidth:visible];
 	}
 }

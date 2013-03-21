@@ -15,6 +15,15 @@
 
 @optional
 - (void)menuTray:(RSSwipeMenuTray *)menuTray selectedButtonAtIndex:(NSUInteger)index;
+/*
+ To achieve a left-lock effect you can implement
+ - (CGRect)menuTray:(RSSwipeMenuTray *)menuTray cellFrame:(CGRect)frame
+ {
+ frame.size.width = self.view.bounds.size.width + frame.origin.x;
+ frame.origin.x = 0;
+ return frame;
+ }
+ */
 - (CGRect)menuTray:(RSSwipeMenuTray *)menuTray cellFrame:(CGRect)frame;
 - (CGAffineTransform)menuTray:(RSSwipeMenuTray *)menuTray transformForButtonAtIndex:(NSUInteger)index visibleWidth:(CGFloat)visible;
 @end
