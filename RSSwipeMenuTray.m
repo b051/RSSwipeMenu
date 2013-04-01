@@ -10,6 +10,11 @@
 #import <objc/runtime.h>
 #import <objc/message.h>
 
+@interface RSSwipeMenuTray ()
+@property (nonatomic) CGFloat moveOffsetX;
+@property (nonatomic) CGFloat perWidth;
+@end
+
 #pragma mark - UITableView+RSSwipeMenu
 @implementation UITableView (RSSwipeMenu)
 
@@ -82,9 +87,8 @@ static char kReusableMenuSet;
 	}
 }
 
-- (RSSwipeMenuTray *)swipeMenuAtIndexPath:(NSIndexPath *)indexPath
+- (RSSwipeMenuTray *)currentSwipeMenuAtIndexPath:(NSIndexPath *)indexPath
 {
-	if (!indexPath) return nil;
 	RSSwipeMenuTray *menu = nil;
 	
 	for (RSSwipeMenuTray *mt in [self subviews]) {
@@ -95,18 +99,6 @@ static char kReusableMenuSet;
 				[mt resetAnimated:YES];
 			}
 		}
-	}
-	
-	if (!menu) {
-		menu = [self dequeueReusableSwipeMenu];
-		if (!menu) {
-			menu = [[RSSwipeMenuTray alloc] initWithDelegate:objc_getAssociatedObject(self, &kSwipeMenuDelegate)];
-		}
-		UITableViewCell *cell = [self cellForRowAtIndexPath:indexPath];
-		menu.cell = cell;
-		menu.indexPath = indexPath;
-		self.swipeMenuInstanceCount++;
-		[self insertSubview:menu atIndex:0];
 	}
 	return menu;
 }
@@ -127,10 +119,30 @@ static char kReusableMenuSet;
 	if (gesture.state == UIGestureRecognizerStateFailed) {
 		return [self closeAnySwipeMenuAnimated:YES];
 	}
-	RSSwipeMenuTray *menu = [self swipeMenuAtIndexPath:gesture.indexPath];
+	RSSwipeMenuTray *menu = [self currentSwipeMenuAtIndexPath:gesture.indexPath];
+	
 	if (gesture.state == UIGestureRecognizerStateChanged) {
 		CGPoint translation = [gesture translationInView:gesture.cell];
-		[menu move:translation.x];
+		if (!menu) {
+			menu = [self dequeueReusableSwipeMenu];
+			if (!menu) {
+				menu = [[RSSwipeMenuTray alloc] initWithDelegate:objc_getAssociatedObject(self, &kSwipeMenuDelegate)];
+			}
+			UITableViewCell *cell = [self cellForRowAtIndexPath:gesture.indexPath];
+			menu.cell = cell;
+			menu.indexPath = gesture.indexPath;
+			[self insertSubview:menu atIndex:0];
+
+			[menu move:translation.x];
+			if (menu.moveOffsetX) {
+				self.swipeMenuInstanceCount++;
+			} else {
+				[self.reusableMenu addObject:menu];
+				[menu removeFromSuperview];
+			}
+		} else {
+			[menu move:translation.x];
+		}
 		[gesture setTranslation:CGPointZero inView:gesture.cell];
 	} else if (gesture.state == UIGestureRecognizerStateEnded) {
 		[menu makeDecision:[gesture velocityInView:self]];
@@ -145,11 +157,6 @@ static char kReusableMenuSet;
 
 
 #pragma mark - RSSwipeMenuTray
-@interface RSSwipeMenuTray ()
-@property (nonatomic) CGFloat moveOffsetX;
-@property (nonatomic) CGFloat perWidth;
-@end
-
 @implementation RSSwipeMenuTray
 {
 	UIView *holderView;
@@ -270,9 +277,9 @@ static char kReusableMenuSet;
 
 - (void)move:(CGFloat)offset
 {
-	CGRect frame = _cell.frame;
 	self.moveOffsetX = MAX(_minOffset * self.bounds.size.width, MIN(_maxOffset * self.bounds.size.width, offset + _moveOffsetX));
-	if ([self.delegate respondsToSelector:@selector(menuTray:transformForButtonAtIndex:visibleWidth:)]) {
+	if (self.moveOffsetX && [self.delegate respondsToSelector:@selector(menuTray:transformForButtonAtIndex:visibleWidth:)]) {
+		CGRect frame = _cell.frame;
 		CGFloat x = _moveOffsetX;
 		BOOL rightUnveiling = x < 0;
 		if (rightUnveiling) x += frame.size.width;
