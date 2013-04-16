@@ -129,8 +129,8 @@ static char kReusableMenuSet;
 				menu = [[RSSwipeMenuTray alloc] initWithDelegate:objc_getAssociatedObject(self, &kSwipeMenuDelegate)];
 			}
 			UITableViewCell *cell = [self cellForRowAtIndexPath:gesture.indexPath];
-			menu.cell = cell;
 			menu.indexPath = gesture.indexPath;
+			menu.cell = cell;
 			[self insertSubview:menu atIndex:0];
 
 			[menu move:translation.x];
