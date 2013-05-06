@@ -36,18 +36,21 @@ static char kReusableMenuSet;
 
 - (void)setSwipeMenuEnabled:(BOOL)enabled
 {
-	objc_setAssociatedObject(self, &kEnabledSwipeMenu, @(enabled), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-	for (UIGestureRecognizer *gr in self.gestureRecognizers) {
-		if ([gr isKindOfClass:[RSSwipeMenuGestureRecognizer class]]) {
-			[self removeGestureRecognizer:gr];
+	if (self.swipeMenuEnabled != enabled) {
+		objc_setAssociatedObject(self, &kEnabledSwipeMenu, @(enabled), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+		for (UIGestureRecognizer *gr in self.gestureRecognizers) {
+			if ([gr isKindOfClass:[RSSwipeMenuGestureRecognizer class]]) {
+				[self closeAnySwipeMenuAnimated:NO];
+				[self removeGestureRecognizer:gr];
+			}
 		}
+		objc_setAssociatedObject(self, &kReusableMenuSet, nil, OBJC_ASSOCIATION_ASSIGN);
+		if (enabled) {
+			objc_setAssociatedObject(self, &kReusableMenuSet, [NSMutableSet setWithCapacity:2], OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+			[self addGestureRecognizer:[[RSSwipeMenuGestureRecognizer alloc] initWithTarget:self action:@selector(_RS_swipeMenuPan:)]];
+		}
+		self.swipeMenuInstanceCount = 0;
 	}
-	objc_setAssociatedObject(self, &kReusableMenuSet, nil, OBJC_ASSOCIATION_ASSIGN);
-	if (enabled) {
-		objc_setAssociatedObject(self, &kReusableMenuSet, [NSMutableSet setWithCapacity:2], OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-		[self addGestureRecognizer:[[RSSwipeMenuGestureRecognizer alloc] initWithTarget:self action:@selector(_RS_swipeMenuPan:)]];
-	}
-	self.swipeMenuInstanceCount = 0;
 }
 
 - (id<RSSwipeMenuTrayDelegate>)swipeMenuDelegate
@@ -132,7 +135,7 @@ static char kReusableMenuSet;
 			menu.indexPath = gesture.indexPath;
 			menu.cell = cell;
 			[self insertSubview:menu atIndex:0];
-
+			
 			[menu move:translation.x];
 			if (menu.moveOffsetX) {
 				self.swipeMenuInstanceCount++;
