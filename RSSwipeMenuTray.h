@@ -37,7 +37,7 @@
 
 @property (nonatomic, unsafe_unretained) id<RSSwipeMenuTrayDelegate> delegate;
 
-@property (nonatomic) UIImage *backgroundImage UI_APPEARANCE_SELECTOR;
+@property (nonatomic, strong) UIImage *backgroundImage UI_APPEARANCE_SELECTOR;
 @property (nonatomic) CGFloat disabledAlpha UI_APPEARANCE_SELECTOR;
 @property (nonatomic) CGFloat swipeDuration UI_APPEARANCE_SELECTOR;
 @property (nonatomic) CGFloat minOffset UI_APPEARANCE_SELECTOR;
