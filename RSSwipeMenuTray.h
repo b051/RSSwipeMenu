@@ -15,6 +15,8 @@
 
 @optional
 - (void)menuTray:(RSSwipeMenuTray *)menuTray selectedButtonAtIndex:(NSUInteger)index;
+- (BOOL)menuTray:(RSSwipeMenuTray *)menuTray swipeEnableAtIndex:(NSIndexPath *)indexPath;
+
 /*
  To achieve a left-lock effect you can implement
  - (CGRect)menuTray:(RSSwipeMenuTray *)menuTray cellFrame:(CGRect)frame
