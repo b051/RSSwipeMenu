@@ -122,6 +122,14 @@ static char kReusableMenuSet;
 	if (gesture.state == UIGestureRecognizerStateFailed) {
 		return [self closeAnySwipeMenuAnimated:YES];
 	}
+	id<RSSwipeMenuTrayDelegate> delegate = objc_getAssociatedObject(self, &kSwipeMenuDelegate);
+	if ([delegate respondsToSelector:@selector(menuTray:swipeEnableAtIndex:)]) {
+		BOOL swipeEnable = [delegate menuTray:nil swipeEnableAtIndex:gesture.indexPath];
+		if (!swipeEnable) {
+			return;
+		}
+	}
+	
 	RSSwipeMenuTray *menu = [self currentSwipeMenuAtIndexPath:gesture.indexPath];
 	
 	if (gesture.state == UIGestureRecognizerStateChanged) {
